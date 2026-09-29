@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스탑워치</title>
+<style>
+  :root { --bg:#f7f7f8; --fg:#111; --muted:#666; --card:#fff; --accent:#2563eb; --danger:#dc2626; --line:#e5e7eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111214; --fg:#f3f4f6; --muted:#9ca3af; --card:#1b1d21; --accent:#3b82f6; --danger:#ef4444; --line:#2a2d33; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; justify-content:center; align-items:flex-start;
+         background:var(--bg); color:var(--fg); font-family:system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; padding:48px 16px; }
+  .card { width:100%; max-width:420px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:32px 24px; text-align:center; }
+  h1 { margin:0 0 16px; font-size:18px; font-weight:600; color:var(--muted); }
+  #time { font-size:clamp(40px, 14vw, 64px); font-variant-numeric:tabular-nums; font-weight:300; margin-bottom:24px; }
+  .buttons { display:flex; gap:12px; justify-content:center; }
+  button { flex:1; font-size:16px; padding:12px 0; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--fg); cursor:pointer; }
+  button:disabled { opacity:.4; cursor:default; }
+  #startStop { background:var(--accent); border-color:var(--accent); color:#fff; }
+  #startStop.running { background:var(--danger); border-color:var(--danger); }
+  ol { list-style:none; margin:24px 0 0; padding:0; text-align:left; max-height:40vh; overflow-y:auto; }
+  li { display:flex; justify-content:space-between; padding:10px 4px; border-top:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  li span:first-child { color:var(--muted); }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>스탑워치</h1>
+  <div id="time">00:00.00</div>
+  <div class="buttons">
+    <button id="startStop">시작</button>
+    <button id="lap" disabled>랩</button>
+    <button id="reset" disabled>리셋</button>
+  </div>
+  <ol id="laps"></ol>
+</main>
+<script>
+  const timeEl = document.getElementById('time');
+  const startStopBtn = document.getElementById('startStop');
+  const lapBtn = document.getElementById('lap');
+  const resetBtn = document.getElementById('reset');
+  const lapsEl = document.getElementById('laps');
+
+  let startTime = 0, elapsed = 0, lastLap = 0, lapCount = 0, frame = null;
+
+  function format(ms) {
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    const cs = Math.floor((ms % 1000) / 10);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(m)}:${pad(s)}.${pad(cs)}`;
+  }
+
+  function now() { return elapsed + (frame ? performance.now() - startTime : 0); }
+
+  function tick() {
+    timeEl.textContent = format(now());
+    frame = requestAnimationFrame(tick);
+  }
+
+  startStopBtn.addEventListener('click', () => {
+    if (frame) {
+      elapsed = now();
+      cancelAnimationFrame(frame);
+      frame = null;
+      startStopBtn.textContent = '시작';
+      startStopBtn.classList.remove('running');
+      lapBtn.disabled = true;
+    } else {
+      startTime = performance.now();
+      frame = requestAnimationFrame(tick);
+      startStopBtn.textContent = '정지';
+      startStopBtn.classList.add('running');
+      lapBtn.disabled = false;
+      resetBtn.disabled = false;
+    }
+  });
+
+  lapBtn.addEventListener('click', () => {
+    const t = now();
+    const li = document.createElement('li');
+    li.innerHTML = `<span>랩 ${++lapCount}</span><span>${format(t - lastLap)}</span><span>${format(t)}</span>`;
+    lapsEl.prepend(li);
+    lastLap = t;
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if (frame) { cancelAnimationFrame(frame); frame = null; }
+    elapsed = lastLap = lapCount = 0;
+    timeEl.textContent = format(0);
+    lapsEl.innerHTML = '';
+    startStopBtn.textContent = '시작';
+    startStopBtn.classList.remove('running');
+    lapBtn.disabled = resetBtn.disabled = true;
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); startStopBtn.click(); }
+  });
+</script>
+</body>
+</html>
